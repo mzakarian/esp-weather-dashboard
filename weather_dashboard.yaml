@@ -1,0 +1,180 @@
+---
+esphome:
+  name: monitor
+  platform: ESP32
+  board: esp-wrover-kit
+
+wifi:
+  ssid: "REDACTED"
+  password: "REDACTED"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Monitor Fallback Hotspot"
+    password: "REDACTED"
+
+captive_portal:
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  password: "REDACTED"
+
+ota:
+  password: "REDACTED"
+
+time:
+  - platform: homeassistant
+    id: esptime
+
+# IMAGES
+image:
+  - file: "images/gauge.png"
+    id: img_pressure
+    resize: 16x16
+    type: GRAYSCALE
+
+  - file: "images/battery-70.png"
+    id: img_battery
+    resize: 16x16
+    type: GRAYSCALE
+
+  - file: "images/molecule-co2.png"
+    id: img_co2
+    resize: 16x16
+    type: GRAYSCALE
+
+  - file: "images/temperature-celsius.png"
+    id: img_temperature
+    resize: 16x16
+    type: GRAYSCALE
+
+  - file: "images/water.png"
+    id: img_humidty
+    resize: 16x16
+    type: GRAYSCALE
+
+sensor:
+  - platform: homeassistant
+    id: inside_temperature
+    entity_id: sensor.netatmo_mein_haus_wetterstation_temperature
+    internal: true
+
+  - platform: homeassistant
+    id: inside_co2
+    entity_id: sensor.netatmo_mein_haus_wetterstation_co2
+    internal: true
+
+  - platform: homeassistant
+    id: inside_humidty
+    entity_id: sensor.netatmo_mein_haus_wetterstation_humidity
+    internal: true
+
+  - platform: homeassistant
+    id: inside_pressure
+    entity_id: sensor.netatmo_mein_haus_wetterstation_pressure
+    internal: true
+
+  - platform: homeassistant
+    id: outside_temperature
+    entity_id: sensor.netatmo_mein_haus_wetterstation_balkon_temperature
+    internal: true
+
+  - platform: homeassistant
+    id: outside_humidity
+    entity_id: sensor.netatmo_mein_haus_wetterstation_balkon_humidity
+    internal: true
+
+  - platform: homeassistant
+    id: outside_battery
+    entity_id: sensor.netatmo_mein_haus_wetterstation_balkon_battery_percent
+    internal: true
+    
+font:
+  - file: 'fonts/OpenSans-Regular.ttf'
+    id: font1
+    size: 14
+
+  - file: 'fonts/OpenSans-Regular.ttf'
+    id: font2
+    size: 48
+
+  - file: 'fonts/OpenSans-Regular.ttf'
+    id: font3
+    size: 11
+    
+i2c:
+  sda: 12
+  scl: 14
+  scan: False
+
+display:
+  - platform: ssd1306_i2c
+    model: "SH1106 128x64"
+    reset_pin: 0
+    address: 0x3C
+    id: my_display
+    pages:
+      - id: page1
+        lambda: |-
+          // Headline
+          it.printf(64, 0, id(font1), TextAlign::TOP_CENTER, "Office");
+
+          // inside_temperature
+          it.image(0, 26, id(img_temperature));
+          if (id(inside_temperature).has_state()) {
+            it.printf(55, 38, id(font3), TextAlign::BASELINE_RIGHT , "%.1f°C", id(inside_temperature).state);
+          }
+
+          // inside_humidty
+          it.image(0, 46, id(img_humidty));
+          if (id(inside_humidty).has_state()) {
+            it.printf(55, 58, id(font3), TextAlign::BASELINE_RIGHT , "%.1f%%", id(inside_humidty).state);
+          }
+
+          // inside_co2
+          it.image(60, 26, id(img_co2));
+          if (id(inside_co2).has_state()) {
+            it.printf(127, 38, id(font3), TextAlign::BASELINE_RIGHT , "%.0fppm", id(inside_co2).state);
+          }
+
+          // inside_pressure
+          it.image(60, 46, id(img_pressure));
+          if (id(inside_pressure).has_state()) {
+            it.printf(127, 58, id(font3), TextAlign::BASELINE_RIGHT , "%.0fmbar", id(inside_pressure).state);
+          }
+      - id: page2
+        lambda: |-
+          // Headline
+          it.printf(64, 0, id(font1), TextAlign::TOP_CENTER, "Garden");
+
+          // outside_temperature
+          it.image(0, 26, id(img_temperature));
+          if (id(outside_temperature).has_state()) {
+            it.printf(55, 38, id(font3), TextAlign::BASELINE_RIGHT , "%.1f°C", id(outside_temperature).state);
+          }
+
+          // outside_humidity
+          it.image(0, 46, id(img_humidty));
+          if (id(outside_humidity).has_state()) {
+            it.printf(55, 58, id(font3), TextAlign::BASELINE_RIGHT , "%.1f%%", id(outside_humidity).state);
+          }
+
+          // outside_battery
+          it.image(60, 26, id(img_battery));
+          if (id(outside_battery).has_state()) {
+            it.printf(127, 38, id(font3), TextAlign::BASELINE_RIGHT , "%.0f%%", id(outside_battery).state);
+          }
+      - id: page3
+        lambda: |-
+          // Clock
+          it.strftime(64, 42, id(font2), TextAlign::BASELINE_CENTER, "%H:%M", id(esptime).now());
+
+interval:
+  - interval: 3s
+    then:
+      - display.page.show_next: my_display
+      - component.update: my_display
